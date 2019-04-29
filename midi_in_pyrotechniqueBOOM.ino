@@ -1,3 +1,7 @@
+#include <MIDI.h>
+
+MIDI_CREATE_DEFAULT_INSTANCE();
+
 #include "FastLED.h"
 #define NUM_LEDS 8//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #define DATA_PIN 16
@@ -19,7 +23,7 @@ byte ledstep = 0 ;
 byte ledfade[8] = {32, 32, 32, 32, 32, 32, 32, 32};
 
 void setup() {
-  Serial.begin(31250);
+  MIDI.begin(MIDI_CHANNEL_OMNI);
   pinMode(2, INPUT_PULLUP);
   pinMode(3, INPUT_PULLUP);
   pinMode(4, INPUT_PULLUP);
@@ -48,29 +52,35 @@ void setup() {
 }
 
 void loop() {
-  if (Serial.available() > 0) {
-    data = Serial.read();
-    data = data & B11110000;
-    //Serial.print(data);
-    if (data == B10010000 && firestate == 1 && s<32) { // midi note on + go vert
-      digitalWrite(7, LOW);
-      digitalWrite(17, HIGH);
-      ledstep = s/4;
-      
-      ledfade[ledstep] = 2*sq((3-(s % 4)));
-      for (int i = 0; i < NUM_LEDS; i++) {
-        leds[i].g = ledfade[i];
-      }
-      s++;
+  if (MIDI.read())                // Is there a MIDI message incoming ?
+  {
+    switch (MIDI.getType())     // Get the type of the message we caught
+    {
+      case midi::NoteOn:       // If it is a Program Change,
+        if (firestate == 1 && s < 32) { // midi note on + go vert
+          // if (data > 127 && data && firestate == 1 && s<32) {
+          digitalWrite(7, LOW);
+          digitalWrite(17, HIGH);
+          ledstep = s / 4;
+          ledfade[ledstep] = 2 * sq((3 - (s % 4)));
+          for (int i = 0; i < NUM_LEDS; i++) {
+            leds[i].g = ledfade[i];
+          }
+          s++;
+          delay(50);
+          digitalWrite(7, HIGH);
+          digitalWrite(17, LOW);
+          FastLED.show();
 
-      delay(50);
-      digitalWrite(7, HIGH);
-      digitalWrite(17, LOW);
-      FastLED.show();
+        }
+        break;
+      // See the online reference for other message types
+      default:
+        break;
     }
   }
 
-  D2.update(); D3.update(); D4.update();
+  D2.update(); //D3.update(); D4.update();
   if ( D2.fell() ) {
     firestate = !firestate;
     if (firestate == 0) {
@@ -94,4 +104,3 @@ void loop() {
   }
 
 }
-
